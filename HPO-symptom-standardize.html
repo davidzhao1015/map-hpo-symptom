@@ -7614,37 +7614,26 @@ Standardize free-text clinical symptoms by mapping them to HPO (Human Phenotype 
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=14b75225">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=14b75225">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [29]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># General modules</span>
 <span class="kn">import</span> <span class="nn">requests</span>
 <span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="c1"># Specific modules</span>
+<span class="kn">import</span> <span class="nn">rapidfuzz</span>
 <span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">process</span>
 <span class="kn">import</span> <span class="nn">obonet</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr" tabindex="0">
-<pre>/opt/anaconda3/lib/python3.12/site-packages/fuzzywuzzy/fuzz.py:11: UserWarning: Using slow pure-python SequenceMatcher. Install python-Levenshtein to remove this warning
-  warnings.warn('Using slow pure-python SequenceMatcher. Install python-Levenshtein to remove this warning')
-</pre>
 </div>
 </div>
 </div>
@@ -7687,67 +7676,42 @@ Standardize free-text clinical symptoms by mapping them to HPO (Human Phenotype 
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d451675f">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=caa306aa">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">requests</span>
-
-<span class="k">def</span> <span class="nf">map_symptoms_to_hpo</span><span class="p">(</span><span class="n">symptom</span><span class="p">):</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># ------------- HPO search (API with params + simple retries) -------------</span>
+<span class="k">def</span> <span class="nf">map_symptoms_to_hpo</span><span class="p">(</span><span class="n">symptom</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">backoff</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Map reported symptoms to HPO terms using the HPA API.</span>
+<span class="sd">    Query the JAX HPO search API and return (term_name, term_id) for the top result, or (None, None).</span>
+<span class="sd">    Uses URL params and a tiny retry/backoff for transient failures.</span>
 <span class="sd">    """</span>
-    <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"https://ontology.jax.org/api/hp/search/?q=</span><span class="si">{</span><span class="n">symptom</span><span class="si">}</span><span class="s2">"</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>  <span class="c1"># raises HTTPError if not 200 OK</span>
-        <span class="n">json_data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'terms'</span><span class="p">,</span> <span class="p">[])</span>
-        <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
-            <span class="n">top</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Take top result</span>
-            <span class="k">return</span> <span class="p">(</span><span class="n">top</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span> <span class="n">top</span><span class="p">[</span><span class="s2">"id"</span><span class="p">])</span>  <span class="c1"># return matched term and HPO ID as a tuple</span>
-        <span class="k">else</span><span class="p">:</span>
+    <span class="n">url</span> <span class="o">=</span> <span class="s2">"https://ontology.jax.org/api/hp/search/"</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"q"</span><span class="p">:</span> <span class="n">symptom</span><span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">retries</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="n">resp</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"terms"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="k">if</span> <span class="n">results</span><span class="p">:</span>
+                <span class="n">top</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">return</span> <span class="n">top</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">),</span> <span class="n">top</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="c1"># print(f"Request failed for term '{symptom}': {e}")</span>
-        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ve</span><span class="p">:</span>
-        <span class="c1"># print(f"Invalid JSON for term '{symptom}': {ve}")</span>
-        <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">requests</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">RequestException</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">attempt</span> <span class="o">&lt;</span> <span class="n">retries</span><span class="p">:</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">backoff</span> <span class="o">*</span> <span class="p">(</span><span class="n">attempt</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="k">continue</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="c1"># JSON decode error</span>
+            <span class="k">return</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=d0086224">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [4]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Example usage:</span>
-<span class="n">symptom</span> <span class="o">=</span> <span class="s2">"headache"</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">map_symptoms_to_hpo</span><span class="p">(</span><span class="n">symptom</span><span class="p">))</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>('Headache', 'HP:0002315')
-</pre>
 </div>
 </div>
 </div>
@@ -7763,67 +7727,80 @@ Standardize free-text clinical symptoms by mapping them to HPO (Human Phenotype 
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=39d5ee24">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=2875dba9">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">process</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># --- Fuzzy matching shim: prefer RapidFuzz; fallback to FuzzyWuzzy ---</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">rapidfuzz</span> <span class="kn">import</span> <span class="n">fuzz</span> <span class="k">as</span> <span class="n">_fuzz</span>
+    <span class="kn">from</span> <span class="nn">rapidfuzz</span> <span class="kn">import</span> <span class="n">process</span> <span class="k">as</span> <span class="n">_process</span>
+    <span class="n">_FUZZ_LIB</span> <span class="o">=</span> <span class="s2">"rapidfuzz"</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="c1"># Fallback (ensure python-Levenshtein is installed for speed)</span>
+    <span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">fuzz</span> <span class="k">as</span> <span class="n">_fuzz</span>
+    <span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">process</span> <span class="k">as</span> <span class="n">_process</span>
+    <span class="n">_FUZZ_LIB</span> <span class="o">=</span> <span class="s2">"fuzzywuzzy"</span>
 
-<span class="k">def</span> <span class="nf">estimate_fuzzy_score</span><span class="p">(</span><span class="n">input_term</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">fuzzy_extract_one</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">choices</span><span class="p">,</span> <span class="n">scorer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Estimate the fuzzy score between the input term and the HPO term.</span>
-
-<span class="sd">    Parameters:</span>
-<span class="sd">    input_term: str</span>
-<span class="sd">        The term reported in the study.</span>
-<span class="sd">    hpo_term: str</span>
-<span class="sd">        The term from the HPO database.</span>
-<span class="sd">    Returns:</span>
-<span class="sd">    fuzzy_score: float</span>
-<span class="sd">        The fuzzy score between the input term and the HPO term.</span>
-
+<span class="sd">    Wrapper around extractOne with a unified return shape:</span>
+<span class="sd">    returns (match_str, score).</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">_FUZZ_LIB</span> <span class="o">==</span> <span class="s2">"rapidfuzz"</span><span class="p">:</span>
+        <span class="c1"># RapidFuzz returns (match, score, index). Default scorer ~ ratio</span>
+        <span class="c1"># You can set scorer=_fuzz.WRatio for WRatio behavior, or _fuzz.ratio.</span>
+        <span class="n">match</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">_process</span><span class="o">.</span><span class="n">extractOne</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">choices</span><span class="p">,</span> <span class="n">scorer</span><span class="o">=</span><span class="n">scorer</span> <span class="ow">or</span> <span class="n">_fuzz</span><span class="o">.</span><span class="n">ratio</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">match</span><span class="p">,</span> <span class="n">score</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># FuzzyWuzzy returns (match, score)</span>
+        <span class="n">match</span><span class="p">,</span> <span class="n">score</span> <span class="o">=</span> <span class="n">_process</span><span class="o">.</span><span class="n">extractOne</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">choices</span><span class="p">,</span> <span class="n">scorer</span><span class="o">=</span><span class="n">scorer</span> <span class="ow">or</span> <span class="n">_fuzz</span><span class="o">.</span><span class="n">WRatio</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">match</span><span class="p">,</span> <span class="n">score</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b1e44e08">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<p><strong>Notes</strong></p>
+<ul>
+<li>RapidFuzz: ratio, partial_ratio, token_sort_ratio, WRatio are available; default above uses ratio.</li>
+<li>FuzzyWuzzy: WRatio is a solid general-purpose scorer, hence the fallback default.</li>
+</ul>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=da52dcc5">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [17]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">estimate_fuzzy_score</span><span class="p">(</span><span class="n">input_term</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Return similarity score in [0, 100], using RapidFuzz if available,</span>
+<span class="sd">    otherwise FuzzyWuzzy (preferably with python-Levenshtein installed).</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_term</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"reported_term must be a string."</span><span class="p">)</span>
-    
-    <span class="n">best_match_fuzzy</span><span class="p">,</span> <span class="n">fuzzy_score</span> <span class="o">=</span> <span class="n">process</span><span class="o">.</span><span class="n">extractOne</span><span class="p">(</span><span class="n">input_term</span><span class="p">,</span> <span class="p">[</span><span class="n">hpo_term</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">fuzzy_score</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hpo_term</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mf">0.0</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">score</span> <span class="o">=</span> <span class="n">fuzzy_extract_one</span><span class="p">(</span><span class="n">input_term</span><span class="p">,</span> <span class="p">[</span><span class="n">hpo_term</span><span class="p">])</span>
+    <span class="c1"># RapidFuzz and FuzzyWuzzy both output 0–100 scale</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">score</span><span class="p">)</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=32dd618a">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Example usage:</span>
-<span class="n">input_term</span> <span class="o">=</span> <span class="s2">"headache"</span>
-<span class="n">hpo_term</span> <span class="o">=</span> <span class="s2">"Headache"</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">estimate_fuzzy_score</span><span class="p">(</span><span class="n">input_term</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">))</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>100
-</pre>
 </div>
 </div>
 </div>
@@ -7839,62 +7816,59 @@ Standardize free-text clinical symptoms by mapping them to HPO (Human Phenotype 
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=5bfc8925">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=c6ae2c21">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [20]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">obonet</span>
-<span class="k">def</span> <span class="nf">get_hpo_definitions_and_synonyms</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Get the definition and synonyms for a given HPO term ID.</span>
-<span class="sd">    """</span>
-    <span class="n">url</span> <span class="o">=</span> <span class="s1">'http://purl.obolibrary.org/obo/hp.obo'</span> <span class="c1"># URL points to the Human Phenotype Ontology (HPO) in OBO format, hosted by the OBO Foundry</span>
-    <span class="n">graph</span> <span class="o">=</span> <span class="n">obonet</span><span class="o">.</span><span class="n">read_obo</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># --- Shared ontology loader (already in your notebook) ---</span>
+<span class="kn">import</span> <span class="nn">obonet</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 
-    <span class="k">if</span> <span class="n">hpo_id</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span>
-        <span class="n">synonyms</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">hpo_id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'synonyms'</span><span class="p">,</span> <span class="p">[])</span>
-        <span class="n">definition</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">hpo_id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'def'</span><span class="p">,</span> <span class="s1">'NA'</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">synonyms</span><span class="p">,</span> <span class="n">definition</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
-    
+<span class="n">HPO_URL</span> <span class="o">=</span> <span class="s2">"http://purl.obolibrary.org/obo/hp.obo"</span>
+
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">load_graph</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Load and cache the HPO graph once per session."""</span>
+    <span class="k">return</span> <span class="n">obonet</span><span class="o">.</span><span class="n">read_obo</span><span class="p">(</span><span class="n">HPO_URL</span><span class="p">)</span>
+
+
+<span class="c1"># --- Improved: fast, cached meta lookup ---</span>
+<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">8192</span><span class="p">)</span>  <span class="c1"># cache per-HPO-ID lookups, too</span>
+<span class="k">def</span> <span class="nf">get_hpo_definitions_and_synonyms</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Return (synonyms, definition) for an HPO ID using the cached graph.</span>
+<span class="sd">    - Avoids repeated obo downloads/parsing.</span>
+<span class="sd">    - Cleans OBO-quoted strings for readability.</span>
+<span class="sd">    """</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">load_graph</span><span class="p">()</span>  <span class="c1"># &lt;-- reuse cached graph</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">node</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[],</span> <span class="kc">None</span>
+
+    <span class="c1"># Synonyms: in OBO it’s usually 'synonym' (singular); keep a fallback.</span>
+    <span class="n">raw_syn</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"synonym"</span><span class="p">,</span> <span class="p">[])</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"synonyms"</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="k">def</span> <span class="nf">_clean_obo_text</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># OBO annotation format often looks like:  "\"text\" EXACT [XREF:...]""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">'"'</span> <span class="ow">in</span> <span class="n">s</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'"'</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">s</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="n">synonyms</span> <span class="o">=</span> <span class="p">[</span><span class="n">_clean_obo_text</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">raw_syn</span><span class="p">]</span>
+
+    <span class="c1"># Definition may be a single string like "\"text\" [PMID:...]""</span>
+    <span class="n">raw_def</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"def"</span><span class="p">)</span>
+    <span class="n">definition</span> <span class="o">=</span> <span class="n">_clean_obo_text</span><span class="p">(</span><span class="n">raw_def</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raw_def</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">synonyms</span><span class="p">,</span> <span class="n">definition</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=144c83aa">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Example usage:</span>
-<span class="n">hpo_id</span> <span class="o">=</span> <span class="s2">"HP:0002315"</span>
-<span class="n">synonyms</span><span class="p">,</span> <span class="n">definition</span> <span class="o">=</span> <span class="n">get_hpo_definitions_and_synonyms</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Synonyms: </span><span class="si">{</span><span class="n">synonyms</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Definition: </span><span class="si">{</span><span class="n">definition</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>    
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Synonyms: []
-Definition: "Cephalgia, or pain sensed in various parts of the head, not confined to the area of distribution of any nerve." [https://orcid.org/0000-0002-0736-9199, PMID:15304572]
-</pre>
 </div>
 </div>
 </div>
@@ -7915,18 +7889,18 @@ Definition: "Cephalgia, or pain sensed in various parts of the head, not confine
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [22]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">obonet</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
 
-<span class="n">HPO_URL</span> <span class="o">=</span> <span class="s2">"http://purl.obolibrary.org/obo/hp.obo"</span>
+<span class="c1"># HPO_URL = "http://purl.obolibrary.org/obo/hp.obo"</span>
 
-<span class="c1"># Cache the graph so it loads only once</span>
-<span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">load_graph</span><span class="p">():</span>
-    <span class="k">return</span> <span class="n">obonet</span><span class="o">.</span><span class="n">read_obo</span><span class="p">(</span><span class="n">HPO_URL</span><span class="p">)</span>
+<span class="c1"># # Cache the graph so it loads only once</span>
+<span class="c1"># @lru_cache(maxsize=1)</span>
+<span class="c1"># def load_graph():</span>
+<span class="c1">#     return obonet.read_obo(HPO_URL)</span>
 
 <span class="k">def</span> <span class="nf">get_rank_and_path</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
@@ -7954,40 +7928,75 @@ Definition: "Cephalgia, or pain sensed in various parts of the head, not confine
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=56b8e8b7">
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=2baa2917">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="Normalizatoin-and-synonym-mathcing">Normalizatoin and synonym mathcing<a class="anchor-link" href="#Normalizatoin-and-synonym-mathcing">¶</a></h3>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=77a2ea2c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [24]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Example usage:</span>
-<span class="n">hpo_id</span> <span class="o">=</span> <span class="s2">"HP:0002315"</span>
-<span class="n">rank</span><span class="p">,</span> <span class="n">lineage</span> <span class="o">=</span> <span class="n">get_rank_and_path</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Rank: </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Lineage: </span><span class="si">{</span><span class="n">lineage</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="c1"># Prefer RapidFuzz (faster, no GPL issues)</span>
+    <span class="kn">from</span> <span class="nn">rapidfuzz</span> <span class="kn">import</span> <span class="n">fuzz</span><span class="p">,</span> <span class="n">process</span> <span class="k">as</span> <span class="n">rf_process</span>
+    <span class="n">_USE_RF</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="c1"># Fall back to fuzzywuzzy if RapidFuzz isn’t available</span>
+    <span class="kn">from</span> <span class="nn">fuzzywuzzy</span> <span class="kn">import</span> <span class="n">fuzz</span><span class="p">,</span> <span class="n">process</span> <span class="k">as</span> <span class="n">fw_process</span>
+    <span class="n">_USE_RF</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="k">def</span> <span class="nf">_norm</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">s</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">synonym_matches_input</span><span class="p">(</span>
+    <span class="n">input_symptom</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">synonyms</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">exact</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">fuzzy_threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">90</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Return True if the input symptom matches any synonym (exact case-insensitive</span>
+<span class="sd">    or fuzzy &gt;= threshold).</span>
+<span class="sd">    """</span>
+    <span class="n">inp</span> <span class="o">=</span> <span class="n">_norm</span><span class="p">(</span><span class="n">input_symptom</span><span class="p">)</span>
+    <span class="n">syns</span> <span class="o">=</span> <span class="p">[</span><span class="n">_norm</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="n">synonyms</span> <span class="ow">or</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">s</span><span class="p">]</span>
+
+    <span class="c1"># Exact (case-insensitive)</span>
+    <span class="k">if</span> <span class="n">exact</span> <span class="ow">and</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">syns</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="c1"># Fuzzy fallback if desired</span>
+    <span class="k">if</span> <span class="n">fuzzy_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">syns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">_USE_RF</span><span class="p">:</span>
+            <span class="c1"># RapidFuzz: compute max similarity quickly</span>
+            <span class="c1"># (rf_process.extractOne returns (match, score, idx))</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">rf_process</span><span class="o">.</span><span class="n">extractOne</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">syns</span><span class="p">,</span> <span class="n">scorer</span><span class="o">=</span><span class="n">fuzz</span><span class="o">.</span><span class="n">ratio</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="n">fuzzy_threshold</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># FuzzyWuzzy fallback</span>
+            <span class="n">best</span><span class="p">,</span> <span class="n">score</span> <span class="o">=</span> <span class="n">fw_process</span><span class="o">.</span><span class="n">extractOne</span><span class="p">(</span><span class="n">inp</span><span class="p">,</span> <span class="n">syns</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="n">fuzzy_threshold</span>
+
+    <span class="k">return</span> <span class="kc">False</span>
 </pre></div>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
 </div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Rank: 4
-Lineage: ['HP:0000001', 'HP:0000118', 'HP:0000707', 'HP:0012638', 'HP:0002315']
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e3d739c0">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=ca1136e9">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7997,62 +8006,73 @@ Lineage: ['HP:0000001', 'HP:0000118', 'HP:0000707', 'HP:0012638', 'HP:0002315']
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=8b12d303">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=bd67d68b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [26]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">map_symptoms_to_hpo_pipeline</span><span class="p">(</span><span class="n">symptom</span><span class="p">):</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">map_symptoms_to_hpo_pipeline</span><span class="p">(</span>
+    <span class="n">symptom</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">score_threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+    <span class="n">synonym_fuzzy_threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">90</span><span class="p">,</span>
+    <span class="n">synonym_exact</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Map reported symptoms to HPO terms and get synonyms and definitions.</span>
+<span class="sd">    Map reported symptoms to HPO terms and verify via fuzzy score &amp; synonym check.</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    symptom: str</span>
-<span class="sd">        The term reported in the study.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">    hpo_term: str or None</span>
-<span class="sd">        The term from the HPO database.</span>
-<span class="sd">    hpo_id: str or None</span>
-<span class="sd">        The ID of the term from the HPO database.</span>
-<span class="sd">    fuzzy_score: float</span>
-<span class="sd">        The fuzzy score between the input term and the HPO term (0 if no match).</span>
-<span class="sd">    definition: str or None</span>
-<span class="sd">        The definition of the HPO term.</span>
-<span class="sd">    rank: int or None</span>
-<span class="sd">        The rank (depth) of the HPO term in the ontology.</span>
-<span class="sd">    path: list of str</span>
-<span class="sd">        The list of HPO IDs representing the path from the root to this term.</span>
-<span class="sd">    status: str</span>
-<span class="sd">        The status of the mapping ('matched' or 'not matched').</span>
+<span class="sd">    Returns an 8-field tuple (always consistent):</span>
+<span class="sd">    1) reported_symptom : str</span>
+<span class="sd">    2) hpo_term         : str | None</span>
+<span class="sd">    3) hpo_id           : str | None</span>
+<span class="sd">    4) definition       : str | None</span>
+<span class="sd">    5) rank             : int | None</span>
+<span class="sd">    6) path             : list[str]</span>
+<span class="sd">    7) fuzzy_score      : float (0–100)</span>
+<span class="sd">    8) status           : 'matched' | 'not matched'</span>
 <span class="sd">    """</span>
-    <span class="c1"># Step 1: Map reported symptoms to HPO terms</span>
+    <span class="c1"># Step 1: API search</span>
     <span class="n">hpo_term</span><span class="p">,</span> <span class="n">hpo_id</span> <span class="o">=</span> <span class="n">map_symptoms_to_hpo</span><span class="p">(</span><span class="n">symptom</span><span class="p">)</span>
 
-    <span class="c1"># If no match found, return immediately</span>
-    <span class="k">if</span> <span class="n">hpo_term</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">hpo_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">symptom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">'not matched'</span>
+    <span class="c1"># Early no-match → return full 8-field schema</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">hpo_term</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">hpo_id</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">symptom</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">[],</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">"not matched"</span>
 
-    <span class="c1"># Step 2: Estimate fuzzy score</span>
+    <span class="c1"># Step 2: Fuzzy score vs label</span>
     <span class="n">fuzzy_score</span> <span class="o">=</span> <span class="n">estimate_fuzzy_score</span><span class="p">(</span><span class="n">symptom</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">)</span>
 
-    <span class="c1"># Step 3: Get HPO definitions and synonyms</span>
+    <span class="c1"># Step 3: Synonyms &amp; definition (cached graph)</span>
     <span class="n">synonyms</span><span class="p">,</span> <span class="n">definition</span> <span class="o">=</span> <span class="n">get_hpo_definitions_and_synonyms</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
-    
-    <span class="c1"># Step 4: Get full lineage</span>
-    <span class="n">rank</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">get_rank_and_path</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
-    <span class="c1"># print(f"Rank: {rank}, Path: {path}")</span>
 
-    <span class="c1"># Step 5: Check if match is acceptable</span>
-    <span class="k">if</span> <span class="n">fuzzy_score</span> <span class="o">&gt;=</span> <span class="mi">80</span> <span class="ow">or</span> <span class="p">(</span><span class="n">hpo_term</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">synonyms</span><span class="p">]):</span>
-        <span class="k">return</span> <span class="n">symptom</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">,</span> <span class="n">hpo_id</span><span class="p">,</span> <span class="n">definition</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">fuzzy_score</span><span class="p">,</span> <span class="s1">'matched'</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">symptom</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">,</span> <span class="n">hpo_id</span><span class="p">,</span> <span class="n">definition</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">fuzzy_score</span><span class="p">,</span> <span class="s1">'not matched'</span>
+    <span class="c1"># Step 4: Lineage</span>
+    <span class="n">rank</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">get_rank_and_path</span><span class="p">(</span><span class="n">hpo_id</span><span class="p">)</span>
+
+    <span class="c1"># Step 5: Acceptance rule (fixed synonym logic)</span>
+    <span class="n">syn_ok</span> <span class="o">=</span> <span class="n">synonym_matches_input</span><span class="p">(</span>
+        <span class="n">input_symptom</span><span class="o">=</span><span class="n">symptom</span><span class="p">,</span>
+        <span class="n">synonyms</span><span class="o">=</span><span class="n">synonyms</span><span class="p">,</span>
+        <span class="n">exact</span><span class="o">=</span><span class="n">synonym_exact</span><span class="p">,</span>
+        <span class="n">fuzzy_threshold</span><span class="o">=</span><span class="n">synonym_fuzzy_threshold</span>
+    <span class="p">)</span>
+    <span class="n">accept</span> <span class="o">=</span> <span class="p">(</span><span class="n">fuzzy_score</span> <span class="o">&gt;=</span> <span class="n">score_threshold</span><span class="p">)</span> <span class="ow">or</span> <span class="n">syn_ok</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"matched"</span> <span class="k">if</span> <span class="n">accept</span> <span class="k">else</span> <span class="s2">"not matched"</span>
+
+    <span class="k">return</span> <span class="n">symptom</span><span class="p">,</span> <span class="n">hpo_term</span><span class="p">,</span> <span class="n">hpo_id</span><span class="p">,</span> <span class="n">definition</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">path</span> <span class="ow">or</span> <span class="p">[],</span> <span class="nb">float</span><span class="p">(</span><span class="n">fuzzy_score</span><span class="p">),</span> <span class="n">status</span>
 </pre></div>
 </div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f529d35e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="How-to-use-(quick-demo)">How to use (quick demo)<a class="anchor-link" href="#How-to-use-(quick-demo)">¶</a></h3>
 </div>
 </div>
 </div>
@@ -8061,12 +8081,15 @@ Lineage: ['HP:0000001', 'HP:0000118', 'HP:0000707', 'HP:0012638', 'HP:0002315']
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [28]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Example usage:</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">map_symptoms_to_hpo_pipeline</span><span class="p">(</span><span class="s2">"headache"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">symptoms</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"ptosis"</span><span class="p">,</span> <span class="s2">"weak suck"</span><span class="p">,</span> <span class="s2">"exercise intolerance"</span><span class="p">]</span>
+<span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">map_symptoms_to_hpo_pipeline</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">symptoms</span><span class="p">]</span>
+<span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"reported_symptom"</span><span class="p">,</span><span class="s2">"hpo_term"</span><span class="p">,</span><span class="s2">"hpo_id"</span><span class="p">,</span><span class="s2">"definition"</span><span class="p">,</span><span class="s2">"rank"</span><span class="p">,</span><span class="s2">"path"</span><span class="p">,</span><span class="s2">"fuzzy_score"</span><span class="p">,</span><span class="s2">"status"</span><span class="p">]</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -8076,11 +8099,74 @@ Lineage: ['HP:0000001', 'HP:0000118', 'HP:0000707', 'HP:0012638', 'HP:0002315']
 <div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>('headache', 'Headache', 'HP:0002315', '"Cephalgia, or pain sensed in various parts of the head, not confined to the area of distribution of any nerve." [https://orcid.org/0000-0002-0736-9199, PMID:15304572]', 4, ['HP:0000001', 'HP:0000118', 'HP:0000707', 'HP:0012638', 'HP:0002315'], 100, 'matched')
-</pre>
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[28]:</div>
+<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>reported_symptom</th>
+<th>hpo_term</th>
+<th>hpo_id</th>
+<th>definition</th>
+<th>rank</th>
+<th>path</th>
+<th>fuzzy_score</th>
+<th>status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>ptosis</td>
+<td>Ptosis</td>
+<td>HP:0000508</td>
+<td>The upper eyelid margin is positioned 3 mm or ...</td>
+<td>4</td>
+<td>[HP:0000001, HP:0000118, HP:0000478, HP:001237...</td>
+<td>83.333333</td>
+<td>matched</td>
+</tr>
+<tr>
+<th>1</th>
+<td>weak suck</td>
+<td>Weak grip</td>
+<td>HP:0033466</td>
+<td>Reduced grip strength. Gripping is the motion ...</td>
+<td>7</td>
+<td>[HP:0000001, HP:0000118, HP:0040064, HP:000281...</td>
+<td>44.444444</td>
+<td>not matched</td>
+</tr>
+<tr>
+<th>2</th>
+<td>exercise intolerance</td>
+<td>Exercise intolerance</td>
+<td>HP:0003546</td>
+<td>A functional motor deficit where individuals w...</td>
+<td>3</td>
+<td>[HP:0000001, HP:0000118, HP:0025142, HP:0003546]</td>
+<td>95.000000</td>
+<td>matched</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 </div>
 </div>
