@@ -1,6 +1,6 @@
 # **Standardizing Clinical Symptom Terms with HPO in Python**
 
-One-line summary: A lightweight, reproducible pipeline that maps free-text symptoms to Human Phenotype Ontology (HPO) terms with verification and context, producing a clean, structured table for evidence synthesis and modeling.
+Summary: A lightweight, reproducible pipeline that maps free-text symptoms to Human Phenotype Ontology (HPO) terms with verification and context, producing a clean, structured table for evidence synthesis and modeling.
 
 **Why this matters**
 
